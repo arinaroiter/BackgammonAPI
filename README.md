@@ -1,0 +1,161 @@
+# Backgammon API
+
+A REST API for a fully-featured Backgammon game engine, built with **ASP.NET Core (.NET 8)** and **C#**. The project models the complete rules of Backgammon — dice rolls, move validation, hitting, the bar, and turn management — and supports both human-vs-human and human-vs-AI play, all served through an interactive Swagger UI.
+
+This project began with two goals. The first was personal: to build a backgammon game my father and I could play remotely, after not finding an existing one we both liked and found easy to use. The second was to learn how to build a real AI opponent from the ground up — using the game as a way into the broader subject of game AI.
+
+Along the way it became an exercise in designing a clean, well-structured backend: applying **Clean Architecture** and **Domain-Driven Design** principles, separating the game rules from the infrastructure, and packaging the result as a portable Docker container.
+
+---
+
+## Project status
+
+**In progress (~85–90% complete).** The core engine is functional and playable end-to-end within a single game: dice rolls, move validation, hitting, sending checkers to the bar, forced bar re-entry, and turn management all work, against both a human and the AI opponent.
+
+Known gaps still being worked on:
+
+- **End-of-game flow** — detecting a win and starting a fresh game is not yet implemented.
+- **Doubles** — rolling a double currently grants two moves; per the rules it should grant four. (The fix is to model the remaining dice as a list rather than a pair — see Roadmap.)
+- **Unity client** — the original Unity game has not yet been refactored to talk to this API.
+
+These are tracked in the [Roadmap](#roadmap) below.
+
+---
+
+## Highlights
+
+- **Core game-rule engine** — legal-move validation, direction enforcement, hitting an opponent's blot, sending it to the bar, and forced bar re-entry before any other move.
+- **AI opponent** — the heart of the project's learning goal: a computer player that evaluates every legal way to play the current turn and selects the highest-scoring one, using a heuristic that rewards hits, building blocks, reinforcing points, and escaping exposed checkers (and entering from the bar first when required). It searches a single turn ahead; evolving this from a hand-tuned heuristic toward search and machine-learned evaluation is a deliberate learning path (see Roadmap).
+- **Clean Architecture / DDD** — four clearly separated layers with dependencies pointing inward, so the core game logic has no knowledge of the web or storage layers.
+- **Containerised** — a multi-stage Dockerfile produces a slim runtime image that runs the API identically on any machine.
+
+---
+
+## Architecture
+
+The solution is organised into four layers, following the Clean Architecture dependency rule (outer layers depend on inner layers, never the reverse):
+
+```
+┌─────────────────────────────────────────────┐
+│  API            Controllers, DTOs, Mappers   │  ← HTTP entry point (Swagger)
+├─────────────────────────────────────────────┤
+│  Application    GameService, Interfaces      │  ← orchestration of game operations
+├─────────────────────────────────────────────┤
+│  Infrastructure Repositories (in-memory)     │  ← data persistence
+├─────────────────────────────────────────────┤
+│  Domain         Game rules, entities, AI     │  ← core logic (no dependencies)
+└─────────────────────────────────────────────┘
+```
+
+| Layer | Responsibility | Key types |
+|-------|----------------|-----------|
+| **Domain** | The heart of the game — all rules and state, with no external dependencies | `GameState`, `GameEngine`, `MoveValidator`, `ComputerPlayer`, `BoardSetup`, board entities |
+| **Application** | Coordinates game operations through a service and defines the interfaces the outer layers implement | `GameService`, `IGameRepository`, `IGameEngine` |
+| **Infrastructure** | Concrete implementations of persistence | `InMemoryGameRepository` (backed by `IMemoryCache`) |
+| **API** | HTTP surface — receives requests, maps to/from DTOs, returns JSON | `GameController`, `GameMapper`, DTOs |
+
+The **Domain** layer is deliberately kept free of any reference to ASP.NET, caching, or storage — the game rules could be lifted out and reused in a console app, a desktop client, or the original game engine without modification.
+
+---
+
+## Tech stack
+
+- **.NET 8** / **C#**
+- **ASP.NET Core Web API**
+- **Swashbuckle / Swagger** for interactive API documentation
+- **IMemoryCache** for in-memory game storage
+- **Docker** (multi-stage build) for containerisation
+- **Azure** — cloud deployment (in progress)
+
+---
+
+## Getting started
+
+### Run with Docker (recommended)
+
+No .NET SDK required — just Docker.
+
+```bash
+# from the repository root
+docker build -t backgammon-api .
+docker run -p 8080:8080 backgammon-api
+```
+
+Then open **http://localhost:8080/swagger** in your browser.
+
+### Run locally with the .NET SDK
+
+```bash
+cd BackgammonAPI
+dotnet run
+```
+
+Then open the Swagger URL shown in the console output.
+
+---
+
+## Using the API
+
+All gameplay is driven through the Swagger UI. A typical flow:
+
+**To start a game:**
+
+1. **Create a game** — start a new game with the standard opening position. Pass `isVsAI=true` to play against the computer.
+2. **Opening roll** — assigns the players' colors and provides the dice for the first turn. The human player always moves first.
+3. **Make a move** — using the opening-roll dice, submit the first move(s). No separate roll is needed to begin.
+
+**Then each turn repeats:**
+
+4. **Roll the dice** — the current player rolls for their turn.
+5. **Make a move** — submit the checker move(s); the engine validates each one, applies it, handles any hit, and advances the turn when both dice are used.
+6. **AI move** — when playing against the computer, trigger the AI to take its turn (it enters from the bar if needed, then plays its best-scoring moves).
+
+**At any time:**
+
+7. **Get state** — fetch the current board, dice, and whose turn it is.
+
+The engine enforces the real rules of Backgammon: moves must go in the correct direction, you can't land on a point held by two or more opposing checkers, hitting a lone opposing checker sends it to the bar, and a player with a checker on the bar must re-enter it before making any other move.
+
+---
+
+## Notable design decisions
+
+- **Game logic isolated in the Domain layer.** Validation and state changes live entirely in the domain, with the API and storage layers kept thin. This keeps the rules testable and reusable.
+- **Validate-then-mutate.** Moves are fully validated before any board state is changed, so a rejected move never leaves the game in a half-updated state.
+- **Interface-based storage.** The Application layer depends on `IGameRepository`, not a concrete store, so the current in-memory implementation can be swapped for a database or distributed cache without touching the game logic.
+
+---
+
+## Roadmap
+
+This project is actively in progress. Completed and planned work:
+
+**Done**
+- [x] RESTful Web API for full gameplay (create game, opening roll, roll, move, AI move, game state)
+- [x] Core game engine (moves, validation, hitting, bar re-entry, turn management)
+- [x] One-ply heuristic AI opponent
+- [x] Clean Architecture layering
+- [x] In-memory game storage with `IMemoryCache`, behind a repository interface
+- [x] Swagger / OpenAPI documentation
+- [x] Dockerised build (multi-stage)
+
+**Planned**
+- [ ] End-of-game detection (win condition) and start-a-new-game flow
+- [ ] Full doubles support — grant four moves on a double (model the dice as a list rather than a pair)
+- [ ] Evolve the AI along a learning path (a personal goal of understanding game AI from the ground up):
+  - [ ] Add lookahead search (minimax / expectiminimax) as a stronger classical baseline
+  - [ ] Replace the hand-tuned evaluation with a machine-learned model (e.g. ML.NET or PyTorch) trained on self-play data
+  - [ ] Explore self-play reinforcement learning — the approach behind TD-Gammon and GNU Backgammon
+- [ ] Richer Swagger metadata and per-endpoint documentation
+- [ ] Unit tests covering the `GameEngine` rules
+- [ ] Pluggable persistence (e.g. a Redis-backed repository)
+- [ ] Promote the four layers into separate projects to enforce the dependency rule at compile time
+- [ ] Refactor the original Unity client to play through this API
+
+---
+
+## About
+
+Built by **Arina Roiter**. The project started from a personal wish — a backgammon game to play remotely with my father — and a desire to learn how to build a real AI opponent. It grew into a backend design exercise focused on clean structure, clear separation of concerns, and writing game logic that is correct, readable, and testable.
+
+GitHub: [github.com/arinaroiter/BackgammonAPI](https://github.com/arinaroiter/BackgammonAPI)
