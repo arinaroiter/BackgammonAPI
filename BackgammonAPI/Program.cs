@@ -27,7 +27,7 @@ builder.Services.AddSwaggerGen(options =>
         Contact = new OpenApiContact
         {
             Name = "Arina",
-            Url = new Uri("https://github.com/<your-username>/BackgammonAPI")
+            Url = new Uri("https://github.com/arinaroiter/BackgammonAPI")
         }
     });
 
