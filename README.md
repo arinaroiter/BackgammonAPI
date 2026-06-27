@@ -68,6 +68,7 @@ The **Domain** layer is deliberately kept free of any reference to ASP.NET, cach
 - **IMemoryCache** for in-memory game storage
 - **Docker** (multi-stage build) for containerisation
 - **Azure Container Apps** for cloud hosting, with **Azure Container Registry** for the image
+- **GitHub Actions** for CI/CD (automated build and deploy)
 
 ---
 
@@ -132,6 +133,18 @@ The engine enforces the real rules of Backgammon: moves must go in the correct d
 
 ---
 
+## Deployment
+
+The API is hosted on **Azure Container Apps** and deployed automatically through a **GitHub Actions** pipeline. On every push to `main`, the workflow:
+
+1. Builds the Docker image on the GitHub Actions runner.
+2. Pushes it to **Azure Container Registry**.
+3. Updates the Container App to run the new image.
+
+Each image is tagged with the commit SHA, so every deployment is traceable to the exact commit that produced it. Authentication to Azure uses a service principal whose credentials are stored as encrypted GitHub secrets (never committed to the repository).
+
+---
+
 ## Roadmap
 
 This project is actively in progress. Completed and planned work:
@@ -145,6 +158,7 @@ This project is actively in progress. Completed and planned work:
 - [x] Swagger / OpenAPI documentation
 - [x] Dockerised build (multi-stage)
 - [x] Live deployment on Azure Container Apps (public Swagger demo)
+- [x] CI/CD pipeline (GitHub Actions) — builds the image and deploys to Azure automatically on every push to `main`
 
 **Planned**
 - [ ] End-of-game detection (win condition) and start-a-new-game flow
@@ -157,7 +171,6 @@ This project is actively in progress. Completed and planned work:
 - [ ] Unit tests covering the `GameEngine` rules
 - [ ] Pluggable persistence (e.g. a Redis-backed repository)
 - [ ] Promote the four layers into separate projects to enforce the dependency rule at compile time
-- [ ] CI/CD pipeline (GitHub Actions) to build and deploy to Azure automatically on push
 - [ ] Refactor the original Unity client to play through this API
 
 ---
