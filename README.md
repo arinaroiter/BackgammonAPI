@@ -6,6 +6,8 @@ This project began with two goals. The first was personal: to build a backgammon
 
 Along the way it became an exercise in designing a clean, well-structured backend: applying **Clean Architecture** and **Domain-Driven Design** principles, separating the game rules from the infrastructure, and packaging the result as a portable Docker container.
 
+**🔗 Live demo:** [Swagger UI](https://backgammon-api.nicetree-3900d9e6.eastus.azurecontainerapps.io/swagger) — the API is deployed on Azure Container Apps; explore and try the endpoints directly in the browser.
+
 ---
 
 ## Project status
@@ -65,18 +67,22 @@ The **Domain** layer is deliberately kept free of any reference to ASP.NET, cach
 - **Swashbuckle / Swagger** for interactive API documentation
 - **IMemoryCache** for in-memory game storage
 - **Docker** (multi-stage build) for containerisation
-- **Azure** — cloud deployment (in progress)
+- **Azure Container Apps** for cloud hosting, with **Azure Container Registry** for the image
 
 ---
 
 ## Getting started
 
-### Run with Docker (recommended)
+### Try it live (no setup)
+
+The API is deployed and running on Azure — just open the [live Swagger UI](https://backgammon-api.nicetree-3900d9e6.eastus.azurecontainerapps.io/swagger) and try the endpoints in your browser.
+
+### Run with Docker
 
 No .NET SDK required — just Docker.
 
 ```bash
-# from the repository root
+# from the project folder (contains the Dockerfile)
 docker build -t backgammon-api .
 docker run -p 8080:8080 backgammon-api
 ```
@@ -138,6 +144,7 @@ This project is actively in progress. Completed and planned work:
 - [x] In-memory game storage with `IMemoryCache`, behind a repository interface
 - [x] Swagger / OpenAPI documentation
 - [x] Dockerised build (multi-stage)
+- [x] Live deployment on Azure Container Apps (public Swagger demo)
 
 **Planned**
 - [ ] End-of-game detection (win condition) and start-a-new-game flow
@@ -150,6 +157,7 @@ This project is actively in progress. Completed and planned work:
 - [ ] Unit tests covering the `GameEngine` rules
 - [ ] Pluggable persistence (e.g. a Redis-backed repository)
 - [ ] Promote the four layers into separate projects to enforce the dependency rule at compile time
+- [ ] CI/CD pipeline (GitHub Actions) to build and deploy to Azure automatically on push
 - [ ] Refactor the original Unity client to play through this API
 
 ---
