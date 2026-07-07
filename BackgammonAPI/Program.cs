@@ -43,13 +43,29 @@ builder.Services.AddScoped<GameEngine>();
 builder.Services.AddScoped<GameMapper>();
 builder.Services.AddScoped<IGameRepository, InMemoryGameRepository>();
 builder.Services.AddScoped<MoveValidator>();
+builder.Services.AddScoped<MoveGenerator>();
+// Register the two AI players
+builder.Services.AddScoped<ComputerPlayer>();
+builder.Services.AddScoped<LLMPlayer>();
+
+// HttpClient for LLMPlayer's Claude call
+builder.Services.AddHttpClient<LLMPlayer>();
+
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(
+            new System.Text.Json.Serialization.JsonStringEnumConverter());
+    });
+
 
 var app = builder.Build();
+
 
 // Configure the HTTP request pipeline.
 //if (app.Environment.IsDevelopment())
 //{
- app.UseSwagger();
+app.UseSwagger();
  app.UseSwaggerUI();   
 //}
 

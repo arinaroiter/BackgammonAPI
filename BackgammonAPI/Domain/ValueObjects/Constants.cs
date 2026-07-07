@@ -14,5 +14,7 @@ namespace BackgammonAPI.Domain.ValueObjects
 
         public enum CheckerColor { Black, White }
         public enum GameStatus { WaitingForOpeningRoll, WaitingForRoll, WaitingForMove, GameOver, None }
+
+        public enum AI_PlayerType { LLM, Computer };
     }
 }

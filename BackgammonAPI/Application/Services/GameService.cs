@@ -21,11 +21,12 @@ namespace BackgammonAPI.Application.Services
             _engine = engine;
         }
 
-        public GameState CreateGame(bool isVsAI = false)
+        public GameState CreateGame(bool isVsAI, AI_PlayerType aiType)
         {
             var state = new GameState
             {
                 IsVsAI = isVsAI,
+                AIType = aiType,
                 AIColor = OponentColor.None,
                 Status = GameStatus.WaitingForOpeningRoll,
                 CurrentPlayerColor = CurrentPlayerColor.None
@@ -103,7 +104,7 @@ namespace BackgammonAPI.Application.Services
 
             // Winner uses these dice for first move
             state.TotalDiceRemaining = state.Die1 + state.Die2;
-            state.isGameStarted = true;
+            state.IsGameStarted = true;
             state.Status = GameStatus.WaitingForMove; // ← skip WaitingForRoll!
             SaveGame(state);
         }
@@ -127,7 +128,7 @@ namespace BackgammonAPI.Application.Services
         }
 
         // ─── AI Move ──────────────────────────────────────────────────
-        public bool ExecuteAIMove(string gameId)
+        public async Task<bool> ExecuteAIMove(string gameId)
         {
             var state = GetGame(gameId);
             if (state == null) return false;
@@ -135,10 +136,10 @@ namespace BackgammonAPI.Application.Services
             bool success = false;
             state.RollDice();
 
-            success = _engine.AIMoveCheckerToPoint(state);
+            success = await _engine.AIMoveCheckerToPoint(state);
 
             if (state.TotalDiceRemaining > 0)
-                success = _engine.AIMoveCheckerToPoint(state);
+                success = await _engine.AIMoveCheckerToPoint(state);
 
             return success;
         }

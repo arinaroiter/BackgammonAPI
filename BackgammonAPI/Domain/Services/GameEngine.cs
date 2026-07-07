@@ -8,18 +8,26 @@ namespace BackgammonAPI.Domain.Services
     public class GameEngine : IGameEngine
     {
 
+        private readonly MoveGenerator _moveGenerator;
         private readonly MoveValidator _moveValidator;
-        public GameEngine(MoveValidator moveValidator)
+        private readonly ComputerPlayer _computerPlayer;
+        private readonly LLMPlayer _llmPlayer;
+        public GameEngine(MoveGenerator moveGenerator, MoveValidator moveValidator, ComputerPlayer computerPlayer,LLMPlayer llmPlayer)
         {
+            _moveGenerator = moveGenerator;
             _moveValidator = moveValidator;
+            _computerPlayer = computerPlayer;
+            _llmPlayer = llmPlayer;
+
         }
 
-        public bool AIMoveCheckerToPoint(GameState instance)
+        public async Task<bool> AIMoveCheckerToPoint(GameState instance)
         {
             bool success = true;
             try
             {
-                Move move = new ComputerPlayer(_moveValidator).GetValidMove(instance.AIColor, instance.AllPoints, instance);
+                IAIPlayer player = GetAIPlayer(instance.AIType);
+                Move move = await player.GetValidMoveAsync(instance.AIColor, instance.AllPoints, instance);
 
                 if (move != null)
                 {
@@ -35,6 +43,12 @@ namespace BackgammonAPI.Domain.Services
             return success;
         }
 
+        private IAIPlayer GetAIPlayer(AI_PlayerType aiType)
+        {
+            return aiType == AI_PlayerType.LLM
+                ? _llmPlayer
+                : _computerPlayer;
+        }
         public bool MoveCheckerToPoint(CheckerPoint selectedChecker, TrianglePoint selectedTriangle, GameState instance)
         {
             bool success = true;

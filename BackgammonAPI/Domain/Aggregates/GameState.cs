@@ -8,9 +8,10 @@ namespace BackgammonAPI.Domain.Aggregates
 
         public int Die1;
         public int Die2;
-        public bool isGameStarted = false;
+        public bool IsGameStarted = false;
         public bool IsVsAI = false;
-
+        public AI_PlayerType AIType = AI_PlayerType.Computer;
+        
         public int TotalDiceRemaining;
         public List<TrianglePoint> AllPoints = new List<TrianglePoint>();
         public List<CheckerPoint> AllCheckers = new List<CheckerPoint>();

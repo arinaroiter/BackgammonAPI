@@ -22,9 +22,9 @@ namespace BackgammonAPI.API.Controllers
         // ─── POST /api/game ───────────────────────────────────────────────
         // Start a new game — returns gameId to client
         [HttpPost]
-        public IActionResult CreateGame([FromQuery] bool isVsAI = false)
+        public IActionResult CreateGame([FromQuery] bool isVsAI = false,[FromQuery] AI_PlayerType aiType = AI_PlayerType.Computer)
         {
-            var state = _gameService.CreateGame(isVsAI);
+            var state = _gameService.CreateGame(isVsAI, aiType);
             return Ok(new { gameId = state.GameId, message = "Game created!" });
         }
 
@@ -108,7 +108,7 @@ namespace BackgammonAPI.API.Controllers
         // ─── POST /api/game/{gameId}/ai-move ──────────────────────────────
         // Trigger AI move — Unity calls this on AI's turn
         [HttpPost("{gameId}/ai-move")]
-        public IActionResult AiMove(string gameId)
+        public async Task<IActionResult> AiMove(string gameId)
         {
             var state = _gameService.GetGame(gameId);
             if (state == null)
@@ -148,7 +148,7 @@ namespace BackgammonAPI.API.Controllers
                     gameState = _mapper.ToDto(state)
                 });
 
-            bool success = _gameService.ExecuteAIMove(gameId);
+            bool success = await _gameService.ExecuteAIMove(gameId);
 
             if (!success)
                 return BadRequest(new

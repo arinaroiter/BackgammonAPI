@@ -17,7 +17,7 @@ namespace BackgammonAPI.API.Mappers
                 Status = state.Status.ToString(),
                 Die1 = state.Die1,
                 Die2 = state.Die2,
-                IsGameStarted = state.isGameStarted,
+                IsGameStarted = state.IsGameStarted,
                 IsVsAI = state.IsVsAI,
                 AIColor = state.AIColor.ToString(),
                 TotalDiceRemaining = state.TotalDiceRemaining,
