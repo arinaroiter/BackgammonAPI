@@ -1,6 +1,6 @@
 # Backgammon API
 
-A REST API for a fully-featured Backgammon game engine, built with **ASP.NET Core (.NET 8)** and **C#**. The project models the complete rules of Backgammon — dice rolls, move validation, hitting, the bar, and turn management — and supports both human-vs-human and human-vs-AI play, all served through an interactive Swagger UI.
+A REST API for a fully-featured Backgammon game engine, built with **ASP.NET Core (.NET 8)** and **C#**. The project models the complete rules of Backgammon — dice rolls, move validation, hitting, the bar, and turn management — and supports three kinds of opponent: human, a heuristic computer player, and an **LLM-based opponent powered by the Anthropic Claude API**, all served through an interactive Swagger UI.
 
 This project began with two goals. The first was personal: to build a backgammon game my father and I could play remotely, after not finding an existing one we both liked and found easy to use. The second was to learn how to build a real AI opponent from the ground up — using the game as a way into the broader subject of game AI.
 
@@ -27,7 +27,8 @@ These are tracked in the [Roadmap](#roadmap) below.
 ## Highlights
 
 - **Core game-rule engine** — legal-move validation, direction enforcement, hitting an opponent's blot, sending it to the bar, and forced bar re-entry before any other move.
-- **AI opponent** — the heart of the project's learning goal: a computer player that evaluates every legal way to play the current turn and selects the highest-scoring one, using a heuristic that rewards hits, building blocks, reinforcing points, and escaping exposed checkers (and entering from the bar first when required). It searches a single turn ahead; evolving this from a hand-tuned heuristic toward search and machine-learned evaluation is a deliberate learning path (see Roadmap).
+- **Heuristic AI opponent** — a computer player that evaluates every legal way to play the current turn and selects the highest-scoring one, using a heuristic that rewards hits, building blocks, reinforcing points, and escaping exposed checkers (and entering from the bar first when required). It searches a single turn ahead; evolving this from a hand-tuned heuristic toward search and machine-learned evaluation is a deliberate learning path (see Roadmap).
+- **LLM-based AI opponent** — a second AI player that uses the **Anthropic Claude API** to choose moves. The design keeps correctness in the code and reasoning in the model: the engine computes the list of legal moves, and the LLM selects the strategically best one from that list — so the LLM can never produce an illegal move. Both AI players sit behind a shared `IAIPlayer` interface, so the game can switch between heuristic and LLM opponents transparently. Built with async processing, secure API-key management (User Secrets locally, Azure secrets in production), structured logging, and a graceful fallback to a valid move if the API call fails.
 - **Clean Architecture / DDD** — four clearly separated layers with dependencies pointing inward, so the core game logic has no knowledge of the web or storage layers.
 - **Containerised** — a multi-stage Dockerfile produces a slim runtime image that runs the API identically on any machine.
 
@@ -51,8 +52,8 @@ The solution is organised into four layers, following the Clean Architecture dep
 
 | Layer | Responsibility | Key types |
 |-------|----------------|-----------|
-| **Domain** | The heart of the game — all rules and state, with no external dependencies | `GameState`, `GameEngine`, `MoveValidator`, `ComputerPlayer`, `BoardSetup`, board entities |
-| **Application** | Coordinates game operations through a service and defines the interfaces the outer layers implement | `GameService`, `IGameRepository`, `IGameEngine` |
+| **Domain** | The heart of the game — all rules and state, with no external dependencies | `GameState`, `GameEngine`, `MoveValidator`, `MoveGenerator`, `ComputerPlayer`, `LLMPlayer`, `BoardSetup`, board entities |
+| **Application** | Coordinates game operations through a service and defines the interfaces the outer layers implement | `GameService`, `IGameRepository`, `IGameEngine`, `IAIPlayer` |
 | **Infrastructure** | Concrete implementations of persistence | `InMemoryGameRepository` (backed by `IMemoryCache`) |
 | **API** | HTTP surface — receives requests, maps to/from DTOs, returns JSON | `GameController`, `GameMapper`, DTOs |
 
@@ -69,6 +70,7 @@ The **Domain** layer is deliberately kept free of any reference to ASP.NET, cach
 - **Docker** (multi-stage build) for containerisation
 - **Azure Container Apps** for cloud hosting, with **Azure Container Registry** for the image
 - **GitHub Actions** for CI/CD (automated build and deploy)
+- **Anthropic Claude API** for the LLM-based opponent (`async` HttpClient integration)
 
 ---
 
@@ -107,7 +109,7 @@ All gameplay is driven through the Swagger UI. A typical flow:
 
 **To start a game:**
 
-1. **Create a game** — start a new game with the standard opening position. Pass `isVsAI=true` to play against the computer.
+1. **Create a game** — start a new game with the standard opening position. Pass `isVsAI=true` to play against an AI, and `aiType=Computer` (heuristic, the default) or `aiType=LLM` (Claude) to choose which AI opponent.
 2. **Opening roll** — assigns the players' colors and provides the dice for the first turn. The human player always moves first.
 3. **Make a move** — using the opening-roll dice, submit the first move(s). No separate roll is needed to begin.
 
@@ -115,7 +117,7 @@ All gameplay is driven through the Swagger UI. A typical flow:
 
 4. **Roll the dice** — the current player rolls for their turn.
 5. **Make a move** — submit the checker move(s); the engine validates each one, applies it, handles any hit, and advances the turn when both dice are used.
-6. **AI move** — when playing against the computer, trigger the AI to take its turn (it enters from the bar if needed, then plays its best-scoring moves).
+6. **AI move** — when playing against an AI, trigger it to take its turn. Depending on the `aiType` chosen at game creation, the move is selected either by the heuristic computer player or by the LLM (Claude) opponent (it enters from the bar if needed, then plays its chosen moves).
 
 **At any time:**
 
@@ -130,6 +132,8 @@ The engine enforces the real rules of Backgammon: moves must go in the correct d
 - **Game logic isolated in the Domain layer.** Validation and state changes live entirely in the domain, with the API and storage layers kept thin. This keeps the rules testable and reusable.
 - **Validate-then-mutate.** Moves are fully validated before any board state is changed, so a rejected move never leaves the game in a half-updated state.
 - **Interface-based storage.** The Application layer depends on `IGameRepository`, not a concrete store, so the current in-memory implementation can be swapped for a database or distributed cache without touching the game logic.
+- **Pluggable AI players behind one interface.** Both the heuristic and the LLM opponents implement a shared `IAIPlayer` interface, and both draw their candidate moves from the same `MoveGenerator`. Selecting an opponent is a matter of routing to the right implementation, and a future stronger AI (e.g. a search- or ML-based player) can be added as just another implementation.
+- **Correctness in code, judgment in the model.** The LLM opponent is deliberately *not* trusted to compute or validate moves — the engine produces the exact set of legal moves and the model only picks from it. This eliminates an entire class of errors (illegal or wrong-direction moves) while still letting the LLM contribute strategic reasoning. If the API call fails or returns something unparseable, the player falls back to a valid move so a game is never left broken.
 
 ---
 
@@ -153,6 +157,7 @@ This project is actively in progress. Completed and planned work:
 - [x] RESTful Web API for full gameplay (create game, opening roll, roll, move, AI move, game state)
 - [x] Core game engine (moves, validation, hitting, bar re-entry, turn management)
 - [x] One-ply heuristic AI opponent
+- [x] LLM-based AI opponent (Anthropic Claude API) behind a shared `IAIPlayer` interface, with async processing, secure key management, and graceful fallback
 - [x] Clean Architecture layering
 - [x] In-memory game storage with `IMemoryCache`, behind a repository interface
 - [x] Swagger / OpenAPI documentation
@@ -163,7 +168,7 @@ This project is actively in progress. Completed and planned work:
 **Planned**
 - [ ] End-of-game detection (win condition) and start-a-new-game flow
 - [ ] Full doubles support — grant four moves on a double (model the dice as a list rather than a pair)
-- [ ] Evolve the AI along a learning path (a personal goal of understanding game AI from the ground up):
+- [ ] Evolve the AI along a learning path (a personal goal of understanding game AI from the ground up). The LLM opponent (done) explores AI through natural-language *reasoning*; a separate, ongoing goal is a classically *strong* engine that plays by *calculation*:
   - [ ] Add lookahead search (minimax / expectiminimax) as a stronger classical baseline
   - [ ] Replace the hand-tuned evaluation with a machine-learned model (e.g. ML.NET or PyTorch) trained on self-play data
   - [ ] Explore self-play reinforcement learning — the approach behind TD-Gammon and GNU Backgammon
